@@ -1,10 +1,17 @@
 package mx.tec.charla.domain
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /** Un mensaje de la sala. `en` son segundos desde 1970, como los cuenta Python (`time.time()`). */
 @Serializable
-data class Mensaje(val id: Long, val de: String, val texto: String, val en: Double)
+data class Mensaje(
+    val id: Long,
+    val de: String,
+    val texto: String,
+    @SerialName("imagen_url") val imagenUrl: String? = null,
+    val en: Double
+)
 
 /** Alguien que pidió entrar y espera a que el anfitrión decida. */
 @Serializable

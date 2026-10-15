@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
@@ -15,9 +16,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
 import mx.tec.charla.domain.Mensaje
 import mx.tec.charla.ui.theme.CharlaTema
 
@@ -29,7 +34,13 @@ import mx.tec.charla.ui.theme.CharlaTema
  * rectángulo redondeado se lea como globo de diálogo.
  */
 @Composable
-fun Burbuja(mensaje: Mensaje, mia: Boolean, conNombre: Boolean, modifier: Modifier = Modifier) {
+fun Burbuja(
+    mensaje: Mensaje,
+    mia: Boolean,
+    conNombre: Boolean,
+    servidor: String? = null,
+    modifier: Modifier = Modifier
+) {
     val c = MaterialTheme.colorScheme
     val e = CharlaTema.espaciado
     val forma = if (mia) RoundedCornerShape(20.dp, 20.dp, 6.dp, 20.dp) else RoundedCornerShape(20.dp, 20.dp, 20.dp, 6.dp)
@@ -51,11 +62,28 @@ fun Burbuja(mensaje: Mensaje, mia: Boolean, conNombre: Boolean, modifier: Modifi
             if (!mia && conNombre) {
                 Text(mensaje.de, style = MaterialTheme.typography.labelMedium, color = c.primary)
             }
-            Text(
-                text = mensaje.texto,
-                style = MaterialTheme.typography.bodyMedium,
-                color = if (mia) c.onPrimary else c.onSurface
-            )
+            mensaje.imagenUrl?.takeIf { it.isNotBlank() }?.let { rawUrl ->
+                val fullUrl = remember(rawUrl, servidor) { resolverUrlImagen(rawUrl, servidor) }
+                AsyncImage(
+                    model = fullUrl,
+                    contentDescription = "Imagen adjunta",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(200.dp)
+                        .clip(RoundedCornerShape(12.dp)),
+                    contentScale = ContentScale.Crop
+                )
+                if (mensaje.texto.isNotBlank()) {
+                    Spacer(Modifier.height(e.xs))
+                }
+            }
+            if (mensaje.texto.isNotBlank()) {
+                Text(
+                    text = mensaje.texto,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (mia) c.onPrimary else c.onSurface
+                )
+            }
             Text(
                 text = horaDe(mensaje.en),
                 style = MaterialTheme.typography.labelSmall,

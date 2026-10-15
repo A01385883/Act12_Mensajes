@@ -1,5 +1,7 @@
 package mx.tec.charla.ui.state
 
+import android.content.Context
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -20,6 +22,9 @@ import mx.tec.charla.data.remote.EventoServidor
 import mx.tec.charla.data.remote.Orden
 import mx.tec.charla.data.remote.SalaApi
 import mx.tec.charla.domain.Solicitud
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.toRequestBody
 import retrofit2.HttpException
 
 @HiltViewModel
@@ -77,6 +82,26 @@ class SalaViewModel @Inject constructor(
     /** true si salió. El mensaje no se pinta aquí: se pinta cuando el servidor lo reparte, a todos igual. */
     fun enviar(texto: String): Boolean = texto.isNotBlank() && conexion.enviar(Orden.Enviar(texto.trim()))
 
+    fun subirYEnviarImagen(uri: Uri, context: Context, textoPie: String = "") {
+        val servidor = _ui.value.destino?.servidor ?: return
+        viewModelScope.launch {
+            try {
+                val byteArray = withContext(Dispatchers.IO) {
+                    context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                } ?: return@launch
+
+                val mimeType = context.contentResolver.getType(uri) ?: "image/jpeg"
+                val requestBody = byteArray.toRequestBody(mimeType.toMediaTypeOrNull())
+                val part = MultipartBody.Part.createFormData("file", "imagen.jpg", requestBody)
+
+                val respuesta = api.subirImagen("$servidor/api/upload", part)
+                val urlCompleta = mx.tec.charla.ui.components.resolverUrlImagen(respuesta.url, servidor)
+                conexion.enviar(Orden.Enviar(texto = textoPie.trim(), imagenUrl = urlCompleta))
+            } catch (_: Exception) {
+            }
+        }
+    }
+
     fun aprobar(solicitud: Solicitud) = responder(solicitud, Orden.Aprobar(solicitud.id))
 
     fun rechazar(solicitud: Solicitud) = responder(solicitud, Orden.Rechazar(solicitud.id))
@@ -89,13 +114,17 @@ class SalaViewModel @Inject constructor(
     fun invitar() {
         _ui.update { it.copy(invitacion = InvitacionUi.Cargando) }
         viewModelScope.launch {
+            val servidor = _ui.value.destino?.servidor ?: SalaStore.propio.servidor
             val invitacion = try {
-                val url = api.invitacion("${SalaStore.propio.servidor}/invitacion").url
-                // Dibujar el QR son medio millón de pixeles: fuera del hilo principal.
-                InvitacionUi.Lista(url, withContext(Dispatchers.Default) { GeneradorQr.bitmap(url) })
-            } catch (e: IOException) {
-                InvitacionUi.Error(mensajeDe(e))
-            } catch (e: HttpException) {
+                val url = api.invitacion("$servidor/invitacion").url
+                if (url.isBlank()) {
+                    InvitacionUi.Error("El servidor no devolvió una dirección de invitación")
+                } else {
+                    val qrBitmap = withContext(Dispatchers.Default) { GeneradorQr.bitmap(url) }
+                    InvitacionUi.Lista(url, qrBitmap)
+                }
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 InvitacionUi.Error(mensajeDe(e))
             }
             _ui.update { it.copy(invitacion = invitacion) }

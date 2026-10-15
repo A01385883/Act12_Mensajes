@@ -84,4 +84,7 @@ dependencies {
     // Pruebas locales (src/test): corren en la JVM de tu computadora, sin emulador.
     testImplementation(libs.junit)
     testImplementation(libs.okhttp.mockwebserver)
+
+    //Imagenes
+    implementation(libs.coil.compose)
 }

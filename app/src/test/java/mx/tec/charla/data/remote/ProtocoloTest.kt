@@ -19,7 +19,7 @@ class ProtocoloTest {
         assertEquals(
             EventoServidor.Bienvenida(
                 yo = "anfitrión",
-                mensajes = listOf(Mensaje(1, "sala", "dani entró a la sala", 1791427512.5)),
+                mensajes = listOf(Mensaje(1, "sala", "dani entró a la sala", en = 1791427512.5)),
                 solicitudes = listOf(Solicitud("IS_cy", "eli"))
             ),
             evento
@@ -29,7 +29,7 @@ class ProtocoloTest {
     @Test
     fun un_mensaje_nuevo_se_convierte_en_mensaje() {
         val evento = Protocolo.leer("""{"tipo":"mensaje","id":7,"de":"dani","texto":"hola","en":1.0}""")
-        assertEquals(Mensaje(7, "dani", "hola", 1.0), (evento as EventoServidor.Nuevo).aMensaje())
+        assertEquals(Mensaje(7, "dani", "hola", en = 1.0), (evento as EventoServidor.Nuevo).aMensaje())
     }
 
     @Test
@@ -42,5 +42,12 @@ class ProtocoloTest {
     fun cada_orden_lleva_su_tipo() {
         assertEquals("""{"tipo":"mensaje","texto":"hola"}""", Protocolo.escribir(Orden.Enviar("hola")))
         assertEquals("""{"tipo":"aprobar","id":"IS_cy"}""", Protocolo.escribir(Orden.Aprobar("IS_cy")))
+    }
+
+    @Test
+    fun un_mensaje_con_imagen_se_deserializa_correctamente() {
+        val evento = Protocolo.leer("""{"tipo":"mensaje","id":8,"de":"dani","texto":"foto","imagen_url":"http://ejemplo.com/foto.jpg","en":2.0}""")
+        assertEquals(Mensaje(8, "dani", "foto", "http://ejemplo.com/foto.jpg", 2.0), (evento as EventoServidor.Nuevo).aMensaje())
+        assertEquals("""{"tipo":"mensaje","texto":"foto","imagen_url":"http://ejemplo.com/foto.jpg"}""", Protocolo.escribir(Orden.Enviar("foto", "http://ejemplo.com/foto.jpg")))
     }
 }

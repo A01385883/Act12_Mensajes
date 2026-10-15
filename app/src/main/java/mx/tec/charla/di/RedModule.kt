@@ -37,7 +37,13 @@ object RedModule {
         // Obligatoria para Retrofit, pero no se usa: cada llamada trae su @Url completa.
         .baseUrl("http://localhost/")
         .client(cliente)
-        .addConverterFactory(Json { ignoreUnknownKeys = true }.asConverterFactory("application/json".toMediaType()))
+        .addConverterFactory(
+            Json {
+                ignoreUnknownKeys = true
+                isLenient = true
+                coerceInputValues = true
+            }.asConverterFactory("application/json".toMediaType())
+        )
         .build()
         .create(SalaApi::class.java)
 }

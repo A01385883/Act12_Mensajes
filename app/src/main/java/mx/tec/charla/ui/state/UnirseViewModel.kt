@@ -46,7 +46,9 @@ class UnirseViewModel @Inject constructor(
             try {
                 lector.escanear()?.let(::usarEnlace)
             } catch (e: Exception) {
-                _ui.update { it.copy(etapa = Etapa.Error("No se pudo abrir el escáner: ${e.message}")) }
+                _ui.update {
+                    it.copy(etapa = Etapa.Error("El escáner con cámara utiliza Google Play Services Code Scanner, que requiere un teléfono real. En emuladores, usa 'Leer de una imagen' o 'Pegar el enlace'."))
+                }
             }
         }
     }
@@ -75,20 +77,22 @@ class UnirseViewModel @Inject constructor(
                 _ui.update { it.copy(etapa = Etapa.Esperando) }
                 // Todavía no hay token para el WebSocket: se pregunta por HTTP cada 2 s.
                 // Si sales de la pantalla, viewModelScope cancela este ciclo.
-                while (solicitud.estado == "pendiente") {
+                while (solicitud.estado.trim().lowercase() == "pendiente" && solicitud.token == null) {
                     delay(2_000)
                     solicitud = api.consultar("$servidor/solicitudes/${solicitud.id}")
                 }
                 val token = solicitud.token
-                if (solicitud.estado == "aprobada" && token != null) {
+                val estadoNorm = solicitud.estado.trim().lowercase()
+                val esAprobada = (estadoNorm in listOf("aprobada", "aprobado", "aceptada", "aceptado", "approved") || token != null) &&
+                        estadoNorm !in listOf("rechazada", "rechazado", "rejected")
+                if (esAprobada && token != null) {
                     store.entrar(servidor, token, solicitud.nickname)
                     _ui.update { it.copy(etapa = Etapa.Dentro) }
                 } else {
                     _ui.update { it.copy(etapa = Etapa.Error("El anfitrión no te dejó entrar")) }
                 }
-            } catch (e: IOException) {
-                _ui.update { it.copy(etapa = Etapa.Error(mensajeDe(e))) }
-            } catch (e: HttpException) {
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 _ui.update { it.copy(etapa = Etapa.Error(mensajeDe(e))) }
             }
         }

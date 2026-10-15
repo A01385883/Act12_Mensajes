@@ -11,6 +11,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -32,6 +33,7 @@ fun BarraMensaje(
     onTexto: (String) -> Unit,
     onEnviar: () -> Unit,
     habilitada: Boolean,
+    onAdjuntarImagen: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val e = CharlaTema.espaciado
@@ -45,6 +47,15 @@ fun BarraMensaje(
             horizontalArrangement = Arrangement.spacedBy(e.sm),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            if (onAdjuntarImagen != null) {
+                IconButton(onClick = onAdjuntarImagen, enabled = habilitada) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_imagen),
+                        contentDescription = "Adjuntar imagen",
+                        tint = if (habilitada) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                    )
+                }
+            }
             TextField(
                 value = texto,
                 onValueChange = onTexto,

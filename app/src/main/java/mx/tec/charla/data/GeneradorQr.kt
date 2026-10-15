@@ -19,7 +19,7 @@ object GeneradorQr {
         val pixeles = IntArray(lado * lado) { i ->
             if (matriz[i % lado, i / lado]) Color.BLACK else Color.WHITE
         }
-        return Bitmap.createBitmap(lado, lado, Bitmap.Config.RGB_565).apply {
+        return Bitmap.createBitmap(lado, lado, Bitmap.Config.ARGB_8888).apply {
             setPixels(pixeles, 0, lado, 0, 0, lado, lado)
         }
     }

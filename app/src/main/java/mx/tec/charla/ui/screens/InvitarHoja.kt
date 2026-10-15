@@ -24,6 +24,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -49,7 +50,11 @@ import mx.tec.charla.ui.theme.CharlaTema
 @Composable
 fun InvitarHoja(invitacion: InvitacionUi, onReintentar: () -> Unit, onCerrar: () -> Unit) {
     val e = CharlaTema.espaciado
-    ModalBottomSheet(onDismissRequest = onCerrar) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ModalBottomSheet(
+        onDismissRequest = onCerrar,
+        sheetState = sheetState
+    ) {
         Column(
             modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = e.xl).padding(bottom = e.xl),
             horizontalAlignment = Alignment.CenterHorizontally

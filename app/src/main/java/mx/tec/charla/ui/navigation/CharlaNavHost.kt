@@ -6,6 +6,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -32,6 +33,7 @@ fun CharlaNavHost() {
         composable(Ruta.SALA) {
             val viewModel: SalaViewModel = hiltViewModel()
             val estado by viewModel.ui.collectAsStateWithLifecycle()
+            val context = LocalContext.current
 
             // Se ve: conectar. Se va (otra pantalla, o la app al fondo): cerrar.
             // Lo mismo que el tablón de la Práctica 8 con su stream.
@@ -43,6 +45,9 @@ fun CharlaNavHost() {
             SalaScreen(
                 estado = estado,
                 onEnviar = viewModel::enviar,
+                onEnviarImagen = { uri, texto ->
+                    viewModel.subirYEnviarImagen(uri, context, texto)
+                },
                 onAprobar = viewModel::aprobar,
                 onRechazar = viewModel::rechazar,
                 onInvitar = viewModel::invitar,

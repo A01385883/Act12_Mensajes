@@ -1,6 +1,10 @@
 package mx.tec.charla.ui.screens
 
 import android.app.Activity
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -20,6 +24,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -30,23 +35,28 @@ import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.core.content.FileProvider
 import androidx.core.view.WindowCompat
+import java.io.File
 import mx.tec.charla.R
 import mx.tec.charla.domain.ANFITRION
 import mx.tec.charla.domain.Destino
@@ -70,6 +80,7 @@ import mx.tec.charla.ui.theme.CharlaTheme
 fun SalaScreen(
     estado: SalaUiState,
     onEnviar: (String) -> Boolean,
+    onEnviarImagen: (Uri, String) -> Unit,
     onAprobar: (Solicitud) -> Unit,
     onRechazar: (Solicitud) -> Unit,
     onInvitar: () -> Unit,
@@ -78,7 +89,40 @@ fun SalaScreen(
     onReiniciar: () -> Unit
 ) {
     var borrador by rememberSaveable { mutableStateOf("") }
+    var mostrarOpcionesAdjuntar by remember { mutableStateOf(false) }
+    val context = LocalContext.current
     val e = CharlaTema.espaciado
+
+    var tempFotoUri by remember { mutableStateOf<Uri?>(null) }
+
+    val launcherGaleria = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri: Uri? ->
+        uri?.let {
+            onEnviarImagen(it, borrador)
+            borrador = ""
+        }
+    }
+
+    val launcherCamara = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { exito ->
+        if (exito && tempFotoUri != null) {
+            onEnviarImagen(tempFotoUri!!, borrador)
+            borrador = ""
+        }
+    }
+
+    fun tomarFoto() {
+        try {
+            val file = File.createTempFile("camara_", ".jpg", context.cacheDir)
+            val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+            tempFotoUri = uri
+            launcherCamara.launch(uri)
+        } catch (_: Exception) {
+        }
+    }
+
     IconosClarosEnLaBarraDeEstado()
     Scaffold(
         topBar = { Encabezado(estado, onInvitar, onUnirme, onReiniciar) },
@@ -87,7 +131,8 @@ fun SalaScreen(
                 texto = borrador,
                 onTexto = { borrador = it },
                 onEnviar = { if (onEnviar(borrador)) borrador = "" },
-                habilitada = estado.puedeEscribir
+                habilitada = estado.puedeEscribir,
+                onAdjuntarImagen = { mostrarOpcionesAdjuntar = true }
             )
         }
     ) { relleno ->
@@ -106,10 +151,40 @@ fun SalaScreen(
             if (estado.mensajes.isEmpty()) {
                 SalaVacia(esPropio = estado.destino?.esPropio != false, modifier = Modifier.weight(1f))
             } else {
-                Mensajes(estado.mensajes, yo = estado.destino?.yo.orEmpty(), modifier = Modifier.weight(1f))
+                Mensajes(
+                    mensajes = estado.mensajes,
+                    yo = estado.destino?.yo.orEmpty(),
+                    servidor = estado.destino?.servidor,
+                    modifier = Modifier.weight(1f)
+                )
             }
         }
     }
+
+    if (mostrarOpcionesAdjuntar) {
+        AlertDialog(
+            onDismissRequest = { mostrarOpcionesAdjuntar = false },
+            title = { Text("Adjuntar imagen") },
+            text = { Text("¿Desde dónde deseas enviar tu imagen?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    mostrarOpcionesAdjuntar = false
+                    tomarFoto()
+                }) {
+                    Text("Cámara")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    mostrarOpcionesAdjuntar = false
+                    launcherGaleria.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                }) {
+                    Text("Galería")
+                }
+            }
+        )
+    }
+
     if (estado.invitacion != InvitacionUi.Cerrada) {
         InvitarHoja(estado.invitacion, onReintentar = onInvitar, onCerrar = onCerrarInvitacion)
     }
@@ -183,7 +258,7 @@ private fun Encabezado(estado: SalaUiState, onInvitar: () -> Unit, onUnirme: () 
 }
 
 @Composable
-private fun Mensajes(mensajes: List<Mensaje>, yo: String, modifier: Modifier = Modifier) {
+private fun Mensajes(mensajes: List<Mensaje>, yo: String, servidor: String? = null, modifier: Modifier = Modifier) {
     val lista = rememberLazyListState()
     val e = CharlaTema.espaciado
     // Llega un mensaje: a la vista, abajo.
@@ -198,7 +273,7 @@ private fun Mensajes(mensajes: List<Mensaje>, yo: String, modifier: Modifier = M
             when (m.de) {
                 SALA -> AvisoDeSala(m.texto)
                 // El nombre solo en el primero de una racha: tres seguidos de dani son UNA voz.
-                else -> Burbuja(m, mia = m.de == yo, conNombre = i == 0 || mensajes[i - 1].de != m.de)
+                else -> Burbuja(m, mia = m.de == yo, conNombre = i == 0 || mensajes[i - 1].de != m.de, servidor = servidor)
             }
         }
     }
@@ -255,13 +330,13 @@ private fun SalaPreview() {
                 destino = Destino("http://10.0.2.2:8000", "", ANFITRION, esPropio = true),
                 conexion = EstadoConexion.Conectado,
                 mensajes = listOf(
-                    Mensaje(1, SALA, "dani entró a la sala", 1_791_400_000.0),
-                    Mensaje(2, "dani", "¡Hola! Ya entré", 1_791_400_060.0),
-                    Mensaje(3, ANFITRION, "Bienvenida a mi sala", 1_791_400_090.0)
+                    Mensaje(1, SALA, "dani entró a la sala", en = 1_791_400_000.0),
+                    Mensaje(2, "dani", "¡Hola! Ya entré", en = 1_791_400_060.0),
+                    Mensaje(3, ANFITRION, "Bienvenida a mi sala", en = 1_791_400_090.0)
                 ),
                 solicitudes = listOf(Solicitud("x", "eli"))
             ),
-            onEnviar = { true }, onAprobar = {}, onRechazar = {}, onInvitar = {},
+            onEnviar = { true }, onEnviarImagen = { _, _ -> }, onAprobar = {}, onRechazar = {}, onInvitar = {},
             onCerrarInvitacion = {}, onUnirme = {}, onReiniciar = {}
         )
     }
